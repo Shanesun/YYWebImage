@@ -187,6 +187,7 @@ static void URLInBlackListAdd(NSURL *url) {
 @synthesize finished = _finished;
 @synthesize cancelled = _cancelled;
 
+// 关键点，内置一个runloop，让线程一直存在。
 /// Network thread entry point.
 + (void)_networkThreadMain:(id)object {
     @autoreleasepool {
@@ -197,12 +198,14 @@ static void URLInBlackListAdd(NSURL *url) {
     }
 }
 
+// 关键点，维持一个 全局常驻线程，确保NSURLConnection回调是线程还存在。
 /// Global image request network thread, used by NSURLConnection delegate.
 + (NSThread *)_networkThread {
     static NSThread *thread = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         thread = [[NSThread alloc] initWithTarget:self selector:@selector(_networkThreadMain:) object:nil];
+        // 设置优先级。iOS8以后出现。
         if ([thread respondsToSelector:@selector(setQualityOfService:)]) {
             thread.qualityOfService = NSQualityOfServiceBackground;
         }
@@ -346,6 +349,7 @@ static void URLInBlackListAdd(NSURL *url) {
             }
         }
     }
+    // 关键点 将NSURLConnection请求放到 [self.class _networkThread] 线程中去。 确保NSURLConnection对象在请求完成回调时还存在。 AFN中NSURLConnection请求时 addport到runloop中有相同作用。
     [self performSelector:@selector(_startRequest:) onThread:[self.class _networkThread] withObject:nil waitUntilDone:NO];
 }
 

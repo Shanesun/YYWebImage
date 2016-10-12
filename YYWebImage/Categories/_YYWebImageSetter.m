@@ -94,7 +94,9 @@ const NSTimeInterval _YYWebImageProgressiveFadeTime = 0.4;
     static dispatch_queue_t queue;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
+        // 创建串行队列
         queue = dispatch_queue_create("com.ibireme.webimage.setter", DISPATCH_QUEUE_SERIAL);
+        // 设置优先级
         dispatch_set_target_queue(queue, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
     });
     return queue;
