@@ -96,7 +96,9 @@ static int _YYWebImageHighlightedSetterKey;
                   progress:(YYWebImageProgressBlock)progress
                  transform:(YYWebImageTransformBlock)transform
                 completion:(YYWebImageCompletionBlock)completion {
+    // 保护
     if ([imageURL isKindOfClass:[NSString class]]) imageURL = [NSURL URLWithString:(id)imageURL];
+    
     manager = manager ? manager : [YYWebImageManager sharedManager];
     
     _YYWebImageSetter *setter = objc_getAssociatedObject(self, &_YYWebImageSetterKey);
@@ -104,8 +106,9 @@ static int _YYWebImageHighlightedSetterKey;
         setter = [_YYWebImageSetter new];
         objc_setAssociatedObject(self, &_YYWebImageSetterKey, setter, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
+    // 取消已有的请求
     int32_t sentinel = [setter cancelWithNewURL:imageURL];
-    
+    // 抛到主线程处理
     _yy_dispatch_sync_on_main_queue(^{
         if ((options & YYWebImageOptionSetImageWithFadeAnimation) &&
             !(options & YYWebImageOptionAvoidSetImage)) {
@@ -123,6 +126,8 @@ static int _YYWebImageHighlightedSetterKey;
         
         // get the image from memory as quickly as possible
         UIImage *imageFromMemory = nil;
+        // 1 使用 位 操作尽可能快的去执行。2 if中有多个判断时，采取换行操作。3 只从内存里面找图片
+        // 加载超大图片，大小超过3mb的图片
         if (manager.cache &&
             !(options & YYWebImageOptionUseNSURLCache) &&
             !(options & YYWebImageOptionRefreshImageCache)) {
@@ -158,6 +163,7 @@ static int _YYWebImageHighlightedSetterKey;
                     BOOL sentinelChanged = weakSetter && weakSetter.sentinel != newSentinel;
                     if (setImage && self && !sentinelChanged) {
                         BOOL showFade = ((options & YYWebImageOptionSetImageWithFadeAnimation) && !self.highlighted);
+                        // 动画
                         if (showFade) {
                             CATransition *transition = [CATransition animation];
                             transition.duration = stage == YYWebImageStageFinished ? _YYWebImageFadeTime : _YYWebImageProgressiveFadeTime;
@@ -177,6 +183,7 @@ static int _YYWebImageHighlightedSetterKey;
                 });
             };
             
+            // NSOperation 请求开始
             newSentinel = [setter setOperationWithSentinel:sentinel url:imageURL options:options manager:manager progress:_progress transform:transform completion:_completion];
             weakSetter = setter;
         });
